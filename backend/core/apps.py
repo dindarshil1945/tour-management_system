@@ -6,4 +6,15 @@ class CoreConfig(AppConfig):
     name = "core"
 
     def ready(self):
-        from . import signals  # noqa: F401
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        if not User.objects.filter(username="admin").exists():
+            User.objects.create_superuser(
+                username="admin",
+                password="admin123",
+                email="admin@example.com",
+                role="SUPER_ADMIN",
+            )
+            print("SUPERUSER CREATED")
