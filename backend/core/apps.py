@@ -6,6 +6,8 @@ class CoreConfig(AppConfig):
     name = "core"
 
     def ready(self):
+        import core.signals
+
         from django.contrib.auth import get_user_model
 
         User = get_user_model()
