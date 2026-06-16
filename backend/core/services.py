@@ -33,11 +33,11 @@ def log_action(user, action: str, module: str, detail: str = "") -> None:
 def family_summary_queryset():
     return Family.objects.annotate(
         total_members=Count("members", distinct=True),
-        adults=Count("members", filter=Q(members__age__gte=18, members__age__lte=59), distinct=True),
+        adults=Count("members", filter=Q(members__age__gte=18, members__age__lte=49), distinct=True),
         teens=Count("members", filter=Q(members__age__gte=13, members__age__lte=17), distinct=True),
-        children=Count("members", filter=Q(members__age__gte=3, members__age__lte=12), distinct=True),
-        babies=Count("members", filter=Q(members__age__lte=2), distinct=True),
-        seniors=Count("members", filter=Q(members__age__gte=60), distinct=True),
+        children=Count("members", filter=Q(members__age__gte=6, members__age__lte=12), distinct=True),
+        babies=Count("members", filter=Q(members__age__lte=5), distinct=True),
+        seniors=Count("members", filter=Q(members__age__gte=50), distinct=True),
         males=Count("members", filter=Q(members__gender=Member.Gender.MALE), distinct=True),
         females=Count("members", filter=Q(members__gender=Member.Gender.FEMALE), distinct=True),
     )
@@ -62,11 +62,11 @@ def dashboard_metrics(tour_id=None):
     return {
         "total_families": total_families,
         "total_members": total_members,
-        "total_adults": members.filter(age__gte=18, age__lte=59).count(),
+        "total_adults": members.filter(age__gte=18, age__lte=49).count(),
         "total_teens": members.filter(age__gte=13, age__lte=17).count(),
-        "total_children": members.filter(age__gte=3, age__lte=12).count(),
-        "total_babies": members.filter(age__lte=2).count(),
-        "total_seniors": members.filter(age__gte=60).count(),
+        "total_children": members.filter(age__gte=6, age__lte=12).count(),
+        "total_babies": members.filter(age__lte=5).count(),
+        "total_seniors": members.filter(age__gte=50).count(),
         "total_males": members.filter(gender=Member.Gender.MALE).count(),
         "total_females": members.filter(gender=Member.Gender.FEMALE).count(),
         "total_other_gender": members.filter(gender=Member.Gender.OTHER).count(),

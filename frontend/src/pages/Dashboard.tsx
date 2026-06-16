@@ -48,11 +48,11 @@ export function Dashboard() {
     ...(otherGender ? [{ label: "Other", value: otherGender }] : []),
   ];
   const ageDistribution = [
-    { label: "Infants (0-2)", value: m?.total_babies ?? 0 },
-    { label: "Children (3-12)", value: m?.total_children ?? 0 },
+    { label: "Infants (0-5)", value: m?.total_babies ?? 0 },
+    { label: "Children (6-12)", value: m?.total_children ?? 0 },
     { label: "Teenagers (13-17)", value: m?.total_teens ?? 0 },
-    { label: "Adults (18-59)", value: m?.total_adults ?? 0 },
-    { label: "Seniors (60+)", value: m?.total_seniors ?? 0 },
+    { label: "Adults (18-49)", value: m?.total_adults ?? 0 },
+    { label: "Seniors (50+)", value: m?.total_seniors ?? 0 },
   ];
   const attendanceDistribution = [
     { label: "Confirmed", value: m?.confirmed_members ?? 0 },
