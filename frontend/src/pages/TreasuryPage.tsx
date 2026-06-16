@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Landmark, ReceiptText, Repeat2, WalletCards } from "lucide-react";
+import { Download, Landmark, ReceiptText, Repeat2, WalletCards } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import type { TreasurySummary } from "../api/types";
-import { Card, Skeleton } from "../components/ui";
+import type { Payment, TreasurySummary } from "../api/types";
+import { Button, Card, Skeleton } from "../components/ui";
 import { formatCurrency } from "../lib/utils";
 
 const links = [
@@ -20,13 +20,39 @@ export function TreasuryPage() {
     queryKey: ["treasury-summary"],
     queryFn: async () => (await api.get<TreasurySummary>("/treasury-summary/")).data,
   });
+  const payments = useQuery({
+    queryKey: ["payments", "treasury-display"],
+    queryFn: async () => (await api.get<{ results: Payment[] }>("/payments/")).data.results,
+  });
   const data = summary.data;
+
+  async function downloadTreasury(path: string, filename: string) {
+    const result = await api.get(path, { responseType: "blob" });
+    const href = URL.createObjectURL(result.data);
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(href);
+  }
 
   return (
     <div className="space-y-5 animate-in">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Treasury Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Independent cash and bank balances for every committee member.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Treasury Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Independent cash and bank balances for every committee member.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <Button variant="outline" onClick={() => downloadTreasury("/reports/treasury.xlsx", "treasury-report.xlsx")}>
+            <Download className="h-4 w-4" />
+            Excel
+          </Button>
+          <Button variant="outline" onClick={() => downloadTreasury("/reports/treasury.pdf", "treasury-report.pdf")}>
+            <Download className="h-4 w-4" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -45,7 +71,7 @@ export function TreasuryPage() {
               </div>
               <strong className="text-lg text-primary">{formatCurrency(member.total_funds)}</strong>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Metric label="Wallet Balance" value={member.wallet_balance} />
               <Metric label="Bank Balance" value={member.bank_balance} />
               <Metric label="Cash Collections" value={member.cash_collections} />
@@ -56,6 +82,59 @@ export function TreasuryPage() {
           </Card>
         ))}
       </div>
+
+      <Card className="overflow-hidden p-4">
+        <h2 className="mb-3 font-semibold">Payments</h2>
+        {payments.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead className="text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    {["Family", "Expected", "Paid", "Balance", "Status"].map((heading) => (
+                      <th key={heading} className="border-b px-3 py-2">{heading}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(payments.data ?? []).map((payment) => (
+                    <tr key={payment.id}>
+                      <td className="border-b px-3 py-3 font-medium">{payment.family_head}</td>
+                      <td className="border-b px-3 py-3">{formatCurrency(payment.amount_expected)}</td>
+                      <td className="border-b px-3 py-3">{formatCurrency(payment.amount_paid)}</td>
+                      <td className="border-b px-3 py-3">{formatCurrency(payment.balance)}</td>
+                      <td className="border-b px-3 py-3">{payment.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="divide-y md:hidden">
+              {(payments.data ?? []).map((payment) => (
+                <div key={payment.id} className="space-y-2 py-3 text-sm">
+                  <div className="font-medium">{payment.family_head}</div>
+                  <div className="grid grid-cols-[104px_minmax(0,1fr)] gap-2">
+                    <span className="text-muted-foreground">Expected</span>
+                    <span>{formatCurrency(payment.amount_expected)}</span>
+                    <span className="text-muted-foreground">Paid</span>
+                    <span>{formatCurrency(payment.amount_paid)}</span>
+                    <span className="text-muted-foreground">Balance</span>
+                    <span>{formatCurrency(payment.balance)}</span>
+                    <span className="text-muted-foreground">Status</span>
+                    <span>{payment.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {links.map((item) => (

@@ -16,6 +16,15 @@ export type DashboardMetrics = {
   total_seniors: number;
   total_males: number;
   total_females: number;
+  total_other_gender: number;
+  confirmed_members: number;
+  pending_members: number;
+  not_attending_members: number;
+  average_family_size: number;
+  largest_family_size: number;
+  largest_family_head: string;
+  smallest_family_size: number;
+  smallest_family_head: string;
   expected_collection: number;
   collected_amount: number;
   pending_amount: number;

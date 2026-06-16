@@ -27,6 +27,7 @@ const nav = [
   { to: "/payments", label: "Payments", icon: CreditCard },
   { to: "/payment-transactions", label: "Transactions", icon: CreditCard },
   { to: "/treasury", label: "Treasury", icon: Landmark },
+  { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/announcements", label: "Announcements", icon: Bell },
   { to: "/audit", label: "Audit Logs", icon: Shield },
   { to: "/settings", label: "Settings", icon: Settings },
@@ -143,6 +144,7 @@ function Shell() {
 
       {moreOpen && (
         <BottomSheet title="More" onClose={() => setMoreOpen(false)}>
+          <SheetLink icon={CreditCard} label="Payments" to="/payments" onNavigate={() => setMoreOpen(false)} />
           <SheetLink icon={Bell} label="Announcements" to="/announcements" onNavigate={() => setMoreOpen(false)} />
           <SheetLink icon={FileBarChart} label="Tours" to="/tours" onNavigate={() => setMoreOpen(false)} />
           <SheetLink icon={FileBarChart} label="Reports" to="/reports" onNavigate={() => setMoreOpen(false)} />

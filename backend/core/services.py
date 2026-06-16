@@ -52,12 +52,16 @@ def dashboard_metrics(tour_id=None):
         members = members.filter(family__tour_id=tour_id)
         payments = payments.filter(family__tour_id=tour_id)
 
+    total_families = families.count()
+    total_members = members.count()
+    largest_family = families.order_by("-total_members", "family_id").first()
+    smallest_family = families.order_by("total_members", "family_id").first()
     total_expected = payments.aggregate(total=Sum("amount_expected"))["total"] or 0
     collected = sum(payment.amount_paid for payment in payments)
 
     return {
-        "total_families": families.count(),
-        "total_members": members.count(),
+        "total_families": total_families,
+        "total_members": total_members,
         "total_adults": members.filter(age__gte=18, age__lte=59).count(),
         "total_teens": members.filter(age__gte=13, age__lte=17).count(),
         "total_children": members.filter(age__gte=3, age__lte=12).count(),
@@ -65,6 +69,15 @@ def dashboard_metrics(tour_id=None):
         "total_seniors": members.filter(age__gte=60).count(),
         "total_males": members.filter(gender=Member.Gender.MALE).count(),
         "total_females": members.filter(gender=Member.Gender.FEMALE).count(),
+        "total_other_gender": members.filter(gender=Member.Gender.OTHER).count(),
+        "confirmed_members": members.filter(status=Member.Status.CONFIRMED).count(),
+        "pending_members": members.filter(status=Member.Status.PENDING).count(),
+        "not_attending_members": members.filter(status=Member.Status.NOT_ATTENDING).count(),
+        "average_family_size": round(total_members / total_families, 2) if total_families else 0,
+        "largest_family_size": getattr(largest_family, "total_members", 0) or 0,
+        "largest_family_head": getattr(largest_family, "family_head", "") if largest_family else "",
+        "smallest_family_size": getattr(smallest_family, "total_members", 0) or 0,
+        "smallest_family_head": getattr(smallest_family, "family_head", "") if smallest_family else "",
         "expected_collection": total_expected,
         "collected_amount": collected,
         "pending_amount": total_expected - collected,

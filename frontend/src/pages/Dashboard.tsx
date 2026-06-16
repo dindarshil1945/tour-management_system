@@ -29,6 +29,8 @@ export function Dashboard() {
   });
 
   const m = metrics.data;
+  const totalMembers = m?.total_members ?? 0;
+  const otherGender = m?.total_other_gender ?? Math.max(totalMembers - (m?.total_males ?? 0) - (m?.total_females ?? 0), 0);
   const ageData = [
     { name: "Adults", value: m?.total_adults ?? 0 },
     { name: "Teens", value: m?.total_teens ?? 0 },
@@ -39,6 +41,23 @@ export function Dashboard() {
   const moneyData = [
     { name: "Collected", value: Number(m?.collected_amount ?? 0) },
     { name: "Pending", value: Number(m?.pending_amount ?? 0) },
+  ];
+  const genderDistribution = [
+    { label: "Male", value: m?.total_males ?? 0 },
+    { label: "Female", value: m?.total_females ?? 0 },
+    ...(otherGender ? [{ label: "Other", value: otherGender }] : []),
+  ];
+  const ageDistribution = [
+    { label: "Infants (0-2)", value: m?.total_babies ?? 0 },
+    { label: "Children (3-12)", value: m?.total_children ?? 0 },
+    { label: "Teenagers (13-17)", value: m?.total_teens ?? 0 },
+    { label: "Adults (18-59)", value: m?.total_adults ?? 0 },
+    { label: "Seniors (60+)", value: m?.total_seniors ?? 0 },
+  ];
+  const attendanceDistribution = [
+    { label: "Confirmed", value: m?.confirmed_members ?? 0 },
+    { label: "Pending", value: m?.pending_members ?? 0 },
+    { label: "Not Attending", value: m?.not_attending_members ?? 0 },
   ];
 
   return (
@@ -57,6 +76,109 @@ export function Dashboard() {
         <Kpi title="Collected" value={formatCurrency(m?.collected_amount)} icon={<CreditCard className="h-4 w-4" />} loading={metrics.isLoading} />
         <Kpi title="Available Funds" value={formatCurrency(treasury.data?.grand_total_funds)} icon={<Activity className="h-4 w-4" />} loading={treasury.isLoading} />
       </div>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Dashboard Analytics</h2>
+          <p className="text-sm text-muted-foreground">Demographics and family distribution for the active tour data.</p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="p-4">
+            <h3 className="mb-3 font-semibold">Members Overview</h3>
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <Metric label="Total Members" value={m?.total_members ?? 0} />
+              <Metric label="Total Families" value={m?.total_families ?? 0} />
+              <Metric label="Male Members" value={m?.total_males ?? 0} />
+              <Metric label="Female Members" value={m?.total_females ?? 0} />
+              {otherGender > 0 && <Metric label="Other Gender" value={otherGender} />}
+            </dl>
+          </Card>
+          <Card className="p-4 lg:col-span-2">
+            <h3 className="mb-3 font-semibold">Age Group Distribution</h3>
+            <div className="space-y-3">
+              {ageDistribution.map((item) => (
+                <DistributionBar key={item.label} label={item.label} value={item.value} total={totalMembers} />
+              ))}
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Tour Insights</h2>
+          <p className="text-sm text-muted-foreground">Attendance, family size, collection, and treasury snapshots.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <InsightCard
+            title="Attendance"
+            items={[
+              ["Confirmed", m?.confirmed_members ?? 0],
+              ["Pending", m?.pending_members ?? 0],
+              ["Not Attending", m?.not_attending_members ?? 0],
+            ]}
+            loading={metrics.isLoading}
+          />
+          <InsightCard
+            title="Family Statistics"
+            items={[
+              ["Average Size", m?.average_family_size ?? 0],
+              ["Largest Family", `${m?.largest_family_size ?? 0}${m?.largest_family_head ? ` - ${m.largest_family_head}` : ""}`],
+              ["Smallest Family", `${m?.smallest_family_size ?? 0}${m?.smallest_family_head ? ` - ${m.smallest_family_head}` : ""}`],
+            ]}
+            loading={metrics.isLoading}
+          />
+          <InsightCard
+            title="Financial Overview"
+            items={[
+              ["Expected", formatCurrency(m?.expected_collection)],
+              ["Received", formatCurrency(m?.collected_amount)],
+              ["Pending", formatCurrency(m?.pending_amount)],
+              ["Collection", `${m?.collection_percentage ?? 0}%`],
+            ]}
+            loading={metrics.isLoading}
+          />
+          <InsightCard
+            title="Treasury Snapshot"
+            items={[
+              ["Wallet Funds", formatCurrency(treasury.data?.total_wallet_funds)],
+              ["Bank Funds", formatCurrency(treasury.data?.total_bank_funds)],
+              ["Treasury Value", formatCurrency(treasury.data?.grand_total_funds)],
+            ]}
+            loading={treasury.isLoading}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">Visual Summaries</h2>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="p-4">
+            <h3 className="mb-3 font-semibold">Gender Distribution</h3>
+            <div className="space-y-3">
+              {genderDistribution.map((item) => (
+                <DistributionBar key={item.label} label={item.label} value={item.value} total={totalMembers} />
+              ))}
+            </div>
+          </Card>
+          <Card className="p-4">
+            <h3 className="mb-3 font-semibold">Age Groups</h3>
+            <div className="space-y-3">
+              {ageDistribution.map((item) => (
+                <DistributionBar key={item.label} label={item.label} value={item.value} total={totalMembers} />
+              ))}
+            </div>
+          </Card>
+          <Card className="p-4">
+            <h3 className="mb-3 font-semibold">Attendance Status</h3>
+            <div className="space-y-3">
+              {attendanceDistribution.map((item) => (
+                <DistributionBar key={item.label} label={item.label} value={item.value} total={totalMembers} />
+              ))}
+            </div>
+          </Card>
+        </div>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="p-4 xl:col-span-2">
@@ -161,5 +283,54 @@ function Metric({ label, value }: { label: string; value: React.ReactNode }) {
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="mt-1 font-semibold">{value}</dd>
     </div>
+  );
+}
+
+function DistributionBar({ label, value, total }: { label: string; value: number; total: number }) {
+  const percentage = total ? Math.round((value / total) * 100) : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="min-w-0 truncate text-muted-foreground">{label}</span>
+        <span className="shrink-0 font-medium">
+          {value} ({percentage}%)
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-primary" style={{ width: `${percentage}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function InsightCard({
+  title,
+  items,
+  loading,
+}: {
+  title: string;
+  items: Array<[string, React.ReactNode]>;
+  loading: boolean;
+}) {
+  return (
+    <Card className="p-4">
+      <h3 className="mb-3 font-semibold">{title}</h3>
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-9 w-full" />
+          ))}
+        </div>
+      ) : (
+        <dl className="space-y-2 text-sm">
+          {items.map(([label, value]) => (
+            <div key={label} className="flex items-start justify-between gap-3 rounded-md bg-muted p-2">
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="text-right font-semibold">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </Card>
   );
 }

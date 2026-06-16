@@ -2,6 +2,7 @@ import { Download, FilePlus2, Pencil, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { utils, writeFile } from "xlsx";
 import { api, listResource } from "../api/client";
 import { ProtectedAction } from "../components/ProtectedAction";
 import { Badge, Button, Card, EmptyState, Skeleton, Spinner } from "../components/ui";
@@ -178,6 +179,19 @@ const resourceConfigs: Record<string, ResourceConfig> = {
   },
 };
 
+const hiddenTableColumns = new Set(["created_at", "updated_at", "notes", "body", "address", "published_by"]);
+const exportColumnLabels: Record<string, string> = {
+  family_head: "Family Head",
+  family_id: "Family ID",
+  family_id_display: "Family ID",
+  family_code: "Family ID",
+  amount_expected: "Amount Expected",
+  amount_paid: "Amount Paid",
+  collection_percentage: "Collection Percentage",
+  received_by_name: "Received By",
+  user_name: "User",
+};
+
 export function ResourcePage({
   title,
   resource,
@@ -210,6 +224,24 @@ export function ResourcePage({
   });
   const rows = query.data?.results ?? [];
   const optionQueries = useResourceOptions(canMutate || modalOpen);
+
+  function exportLoadedRows() {
+    if (!rows.length) {
+      setMessage({ type: "error", text: `No ${title.toLowerCase()} data is loaded to export.` });
+      return;
+    }
+    exportRowsToExcel(rows, `${title.toLowerCase().replace(/\s+/g, "-")}.xlsx`, title);
+    setMessage({ type: "success", text: `${title} exported successfully.` });
+  }
+
+  function exportLoadedRowsPdf() {
+    if (!rows.length) {
+      setMessage({ type: "error", text: `No ${title.toLowerCase()} data is loaded to export.` });
+      return;
+    }
+    exportRowsToPdf(rows, `${title.toLowerCase().replace(/\s+/g, "-")}.pdf`, title);
+    setMessage({ type: "success", text: `${title} PDF exported successfully.` });
+  }
 
   useEffect(() => {
     if (searchParams.get("new") === "1" && canMutate && !config?.createDisabled) {
@@ -250,11 +282,8 @@ export function ResourcePage({
 
   const columns = useMemo(() => {
     if (!rows[0]) return [];
-    const hidden = new Set(["created_at", "updated_at", "notes", "body", "address", "published_by"]);
-    return Object.keys(rows[0])
-      .filter((key) => !hidden.has(key))
-      .slice(0, 7);
-  }, [rows]);
+    return displayColumnsForResource(resource, rows[0]).slice(0, 7);
+  }, [resource, rows]);
 
   return (
     <div className="space-y-5 animate-in">
@@ -263,10 +292,14 @@ export function ResourcePage({
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="text-sm text-muted-foreground">Search, filter, review, import, export, and operate tour data.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <ProtectedAction variant="outline">
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <ProtectedAction variant="outline" onClick={exportLoadedRows}>
             <Download className="h-4 w-4" />
-            Export
+            Excel
+          </ProtectedAction>
+          <ProtectedAction variant="outline" onClick={exportLoadedRowsPdf}>
+            <Download className="h-4 w-4" />
+            PDF
           </ProtectedAction>
           {canMutate && !config?.createDisabled && (
             <ProtectedAction
@@ -285,18 +318,18 @@ export function ResourcePage({
       <Card className="p-4">
         <div className="grid gap-3 md:grid-cols-[1fr_180px_180px]">
           <input
-            className="h-10 rounded-md border bg-background px-3 text-sm"
+            className="h-10 min-w-0 rounded-md border bg-background px-3 text-sm"
             placeholder={`Search ${title.toLowerCase()}...`}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <select className="h-10 rounded-md border bg-background px-3 text-sm">
+          <select className="h-10 min-w-0 rounded-md border bg-background px-3 text-sm">
             <option>All statuses</option>
             <option>Confirmed</option>
             <option>Pending</option>
             <option>Paid</option>
           </select>
-          <select className="h-10 rounded-md border bg-background px-3 text-sm">
+          <select className="h-10 min-w-0 rounded-md border bg-background px-3 text-sm">
             <option>Family Tour 2026</option>
             <option>Family Tour 2027</option>
           </select>
@@ -380,9 +413,15 @@ export function ResourcePage({
           <div className="divide-y md:hidden">
             {rows.map((row, index) => (
               <div key={String(row.id ?? index)} className="space-y-3 p-4">
+                {resource === "/families/" && (
+                  <div>
+                    <p className="text-xs uppercase text-muted-foreground">Family Head</p>
+                    <p className="break-words text-base font-semibold">{String(row.family_head ?? "-")}</p>
+                  </div>
+                )}
                 <div className="grid gap-2">
                   {columns.map((key) => (
-                    <div key={key} className="grid grid-cols-[112px_1fr] gap-2 text-sm">
+                    <div key={key} className="grid grid-cols-[104px_minmax(0,1fr)] gap-2 text-sm">
                       <span className="text-muted-foreground">{key.replaceAll("_", " ")}</span>
                       <div className="min-w-0 break-words font-medium">
                         <CellValue field={key} value={row[key]} />
@@ -439,6 +478,117 @@ export function ResourcePage({
       )}
     </div>
   );
+}
+
+function displayColumnsForResource(resource: string, row: Record<string, unknown>) {
+  const keys = Object.keys(row).filter((key) => !hiddenTableColumns.has(key));
+  if (resource !== "/families/") return keys;
+  const priority = ["family_id", "family_head"];
+  return [...priority.filter((key) => keys.includes(key)), ...keys.filter((key) => !priority.includes(key))];
+}
+
+function exportRowsToExcel(rows: Record<string, unknown>[], filename: string, sheetName: string) {
+  const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
+  const exportRows = rows.map((row) =>
+    Object.fromEntries(
+      columns.map((key) => [exportColumnLabels[key] ?? key.replaceAll("_", " "), normalizeExportValue(row[key])])
+    )
+  );
+  const worksheet = utils.json_to_sheet(exportRows);
+  const workbook = utils.book_new();
+  utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31) || "Export");
+  writeFile(workbook, filename);
+}
+
+function exportRowsToPdf(rows: Record<string, unknown>[], filename: string, title: string) {
+  const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).slice(0, 8);
+  const lines = [
+    title,
+    `Generated: ${new Date().toLocaleString()}`,
+    "",
+    ...rows.flatMap((row, index) => [
+      `${index + 1}. ${rowTitle(row)}`,
+      ...columns.map((key) => {
+        const label = exportColumnLabels[key] ?? key.replaceAll("_", " ");
+        return `   ${label}: ${String(normalizeExportValue(row[key])).slice(0, 110)}`;
+      }),
+      "",
+    ]),
+  ];
+  saveTextPdf(lines, filename);
+}
+
+function saveTextPdf(lines: string[], filename: string) {
+  const pageHeight = 792;
+  const marginTop = 48;
+  const lineHeight = 14;
+  const linesPerPage = Math.floor((pageHeight - marginTop * 2) / lineHeight);
+  const pages = chunk(lines, linesPerPage);
+  const objects: string[] = [];
+  const addObject = (content: string) => {
+    objects.push(content);
+    return objects.length;
+  };
+  const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const pageRefs: number[] = [];
+
+  for (const pageLines of pages) {
+    const textCommands = pageLines
+      .map((line, index) => `BT /F1 10 Tf 40 ${pageHeight - marginTop - index * lineHeight} Td (${escapePdfText(line)}) Tj ET`)
+      .join("\n");
+    const contentId = addObject(`<< /Length ${textCommands.length} >>\nstream\n${textCommands}\nendstream`);
+    pageRefs.push(addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`));
+  }
+
+  const pagesId = objects.length + 1;
+  pageRefs.forEach((ref, index) => {
+    objects[ref - 1] = objects[ref - 1].replace("/Parent 0 0 R", `/Parent ${pagesId} 0 R`);
+  });
+  addObject(`<< /Type /Pages /Kids [${pageRefs.map((ref) => `${ref} 0 R`).join(" ")}] /Count ${pageRefs.length} >>`);
+  const catalogId = addObject(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+  const offsets: number[] = [];
+  let pdf = "%PDF-1.4\n";
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  downloadBlob(new Blob([pdf], { type: "application/pdf" }), filename);
+}
+
+function rowTitle(row: Record<string, unknown>) {
+  return String(row.family_head ?? row.name ?? row.username ?? row.action ?? row.id ?? "Record");
+}
+
+function escapePdfText(value: string) {
+  return value.replace(/[\\()]/g, "\\$&").replace(/[^\x20-\x7E]/g, " ");
+}
+
+function chunk<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+  return chunks.length ? chunks : [[]];
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(href);
+}
+
+function normalizeExportValue(value: unknown) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "object") return JSON.stringify(value);
+  return value;
 }
 
 function CellValue({ field, value }: { field: string; value: unknown }) {
