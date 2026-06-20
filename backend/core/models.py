@@ -75,13 +75,13 @@ class Member(TimeStampedModel):
 
     @property
     def age_category(self) -> str:
-        if self.age <= 2:
-            return "Baby"
+        if self.age <= 5:
+            return "Infant"
         if self.age <= 12:
             return "Child"
         if self.age <= 17:
-            return "Teen"
-        if self.age <= 59:
+            return "Teenager"
+        if self.age <= 49:
             return "Adult"
         return "Senior Citizen"
 
