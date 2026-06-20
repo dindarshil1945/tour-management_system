@@ -362,20 +362,26 @@ export function ResourcePage({
             <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
                 <tr>
-                  {columns.map((key) => (
-                    <th key={key} className="px-4 py-3 font-medium">
-                      {key.replaceAll("_", " ")}
-                    </th>
-                  ))}
+                  <th className="px-4 py-3 font-medium">Sl No</th>
+
+                  {columns
+                    .filter((key) => key !== "id")
+                    .map((key) => (
+                      <th key={key} className="px-4 py-3 font-medium">
+                        {key.replaceAll("_", " ")}
+                      </th>
+                    ))}
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, index) => (
                   <tr key={String(row.id ?? index)} className="border-t">
-                    {columns
-                      .map((key) => [key, row[key]] as const)
-                      .map(([key, value]) => (
+                    <td className="px-4 py-3">{index + 1}</td>
+                      {columns
+                        .filter((key) => key !== "id")
+                        .map((key) => [key, row[key]] as const)
+                        .map(([key, value]) => (
                         <td key={key} className="px-4 py-3">
                           <CellValue field={key} value={value} />
                         </td>
@@ -483,10 +489,34 @@ export function ResourcePage({
 }
 
 function displayColumnsForResource(resource: string, row: Record<string, unknown>) {
-  const keys = Object.keys(row).filter((key) => !hiddenTableColumns.has(key));
-  if (resource !== "/families/") return keys;
-  const priority = ["family_id", "family_head"];
-  return [...priority.filter((key) => keys.includes(key)), ...keys.filter((key) => !priority.includes(key))];
+  const keys = Object.keys(row).filter(
+    (key) => !hiddenTableColumns.has(key)
+  );
+
+  if (resource === "/members/") {
+    return ["name", "age", "gender", "family_head"];
+  }
+
+  if (resource === "/payments/") {
+    return [
+      "family_code",
+      "family_head",
+      "collection_percentage",
+      "amount_paid",
+      "balance",
+      "status",
+    ];
+  }
+
+  if (resource === "/families/") {
+    const priority = ["family_id", "family_head"];
+    return [
+      ...priority.filter((key) => keys.includes(key)),
+      ...keys.filter((key) => !priority.includes(key)),
+    ];
+  }
+
+  return keys;
 }
 
 function exportRowsToExcel(rows: Record<string, unknown>[], filename: string, sheetName: string) {
