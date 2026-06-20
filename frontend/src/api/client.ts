@@ -24,23 +24,29 @@ export type Paginated<T> = {
 export async function listResource<T>(
   resource: string,
   params?: Record<string, unknown>
-) {
+): Promise<Paginated<T>> {
   let nextUrl: string | null = resource;
   let allResults: T[] = [];
   let count = 0;
 
   while (nextUrl) {
-    const response = nextUrl.startsWith("http")
-      ? await axios.get<Paginated<T>>(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-          },
-        })
-      : await api.get<Paginated<T>>(nextUrl, {
-          params,
-        });
+    let data: Paginated<T>;
 
-    const data = response.data;
+    if (nextUrl.startsWith("http")) {
+      const response = await axios.get<Paginated<T>>(nextUrl, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+        },
+      });
+
+      data = response.data;
+    } else {
+      const response = await api.get<Paginated<T>>(nextUrl, {
+        params,
+      });
+
+      data = response.data;
+    }
 
     allResults.push(...data.results);
     count = data.count;
