@@ -284,6 +284,11 @@ export function ResourcePage({
 
   const columns = useMemo(() => {
     if (!rows[0]) return [];
+
+    if (resource === "/families/") {
+      return displayColumnsForResource(resource, rows[0]);
+    }
+
     return displayColumnsForResource(resource, rows[0]).slice(0, 7);
   }, [resource, rows]);
 
@@ -362,7 +367,9 @@ export function ResourcePage({
             <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Sl No</th>
+                  {resource !== "/families/" && (
+                    <th className="px-4 py-3 font-medium">Sl No</th>
+                  )}
 
                   {columns
                     .filter((key) => key !== "id")
@@ -377,7 +384,9 @@ export function ResourcePage({
               <tbody>
                 {rows.map((row, index) => (
                   <tr key={String(row.id ?? index)} className="border-t">
-                    <td className="px-4 py-3">{index + 1}</td>
+                    {resource !== "/families/" && (
+                      <td className="px-4 py-3">{index + 1}</td>
+                    )}
                       {columns
                         .filter((key) => key !== "id")
                         .map((key) => [key, row[key]] as const)
@@ -509,10 +518,15 @@ function displayColumnsForResource(resource: string, row: Record<string, unknown
   }
 
   if (resource === "/families/") {
-    const priority = ["family_id", "family_head"];
     return [
-      ...priority.filter((key) => keys.includes(key)),
-      ...keys.filter((key) => !priority.includes(key)),
+      "family_id",
+      "family_head",
+      "total_members",
+      "babies",
+      "children",
+      "teens",
+      "adults",
+      "seniors",
     ];
   }
 
