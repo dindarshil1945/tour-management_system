@@ -6,6 +6,8 @@ import { utils, writeFile } from "xlsx";
 import { api, listResource } from "../api/client";
 import { ProtectedAction } from "../components/ProtectedAction";
 import { Badge, Button, Card, EmptyState, Skeleton, Spinner } from "../components/ui";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type FieldType = "text" | "number" | "date" | "textarea" | "select" | "boolean" | "file";
 
@@ -500,22 +502,56 @@ function exportRowsToExcel(rows: Record<string, unknown>[], filename: string, sh
   writeFile(workbook, filename);
 }
 
-function exportRowsToPdf(rows: Record<string, unknown>[], filename: string, title: string) {
-  const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row)))).slice(0, 8);
-  const lines = [
-    title,
-    `Generated: ${new Date().toLocaleString()}`,
-    "",
-    ...rows.flatMap((row, index) => [
-      `${index + 1}. ${rowTitle(row)}`,
-      ...columns.map((key) => {
-        const label = exportColumnLabels[key] ?? key.replaceAll("_", " ");
-        return `   ${label}: ${String(normalizeExportValue(row[key])).slice(0, 110)}`;
-      }),
-      "",
-    ]),
-  ];
-  saveTextPdf(lines, filename);
+function exportRowsToPdf(
+  rows: Record<string, unknown>[],
+  filename: string,
+  title: string
+) {
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const columns = Array.from(
+    new Set(rows.flatMap((row) => Object.keys(row)))
+  )
+    .filter(
+      (key) =>
+        ![
+          "created_at",
+          "updated_at",
+          "notes",
+          "body",
+          "address",
+        ].includes(key)
+    );
+
+  const headers = columns.map(
+    (key) => exportColumnLabels[key] ?? key.replaceAll("_", " ")
+  );
+
+  const body = rows.map((row) =>
+    columns.map((key) => String(normalizeExportValue(row[key])))
+  );
+
+  doc.setFontSize(16);
+  doc.text(title, 14, 15);
+
+  autoTable(doc, {
+    head: [headers],
+    body: body,
+    startY: 22,
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+    },
+    headStyles: {
+      fillColor: [99, 102, 241],
+    },
+  });
+
+  doc.save(filename);
 }
 
 function saveTextPdf(lines: string[], filename: string) {
